@@ -25,7 +25,6 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Se
 header{padding:28px 16px 10px;text-align:center;}
 h1{margin:0 0 4px;font-size:1.5rem;letter-spacing:.02em;color:var(--accent);}
 header p{margin:0;color:var(--sub);font-size:.95rem;}
-.status-bar{margin-top:8px;font-size:.8rem;color:var(--sub);font-weight:600;}
 .wrap{max-width:900px;margin:0 auto;padding:12px 12px 40px;}
 .week{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:16px 0;overflow:hidden;}
 .week-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--accent);color:#fff;}
@@ -42,7 +41,6 @@ td{padding:10px 18px;border-top:1px solid var(--line);font-size:.95rem;}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle;}
 .overflow{overflow-x:auto;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <header>
@@ -53,16 +51,10 @@ td{padding:10px 18px;border-top:1px solid var(--line);font-size:.95rem;}
     <span><span class="dot" style="background:var(--nicolas)"></span>Nicolas</span>
     <span><span class="dot" style="background:var(--milena)"></span>Milena</span>
   </div>
-  <div class="status-bar" id="status">🔄 A carregar...</div>
 </header>
 <div class="wrap" id="app"></div>
 
 <script>
-const SUPABASE_URL = "https://ljzpjavdqifpkksesqvw.supabase.co";
-const SUPABASE_KEY = "COLE_AQUI_A_SUA_CHAVE_PADRAO_PUBLICAVEL";
-
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
 const tasks = ["Banheiro","Lavabo","Lixos","Cozinha","Sala e Corredores","Lavanderia","Geladeira"];
 const colors = {"Estevão":"var(--estevao)","Nicolas":"var(--nicolas)","Milena":"var(--milena)"};
 const patternA = ["Estevão","Nicolas","Milena","Estevão","Nicolas","Milena","Estevão"];
@@ -79,73 +71,46 @@ const weeks = [
 ];
 
 const app = document.getElementById("app");
-const statusEl = document.getElementById("status");
-
+const KEY = "camelot-planner-status";
 let state = {};
+try{ state = JSON.parse(localStorage.getItem(KEY) || "{}"); }catch(e){ state = {}; }
 
-function render() {
-  app.innerHTML = "";
-  weeks.forEach((w, wi) => {
-    const section = document.createElement("div");
-    section.className = "week";
-    section.innerHTML = `
-      <div class="week-head"><h2>${w.label}</h2><span>a partir de ${w.date}</span></div>
-      <div class="overflow"><table>
-        <thead><tr><th>Tarefa</th><th>Responsável</th><th>Feito</th></tr></thead>
-        <tbody></tbody>
-      </table></div>`;
-    const tbody = section.querySelector("tbody");
-    tasks.forEach((task, ti) => {
-      const person = w.pattern[ti];
-      const id = `w${wi}-t${ti}`;
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="task ${state[id]?'done':''}">${task}</td>
-        <td><span class="who" style="background:${colors[person]}">${person}</span></td>
-        <td><input type="checkbox" class="chk" ${state[id]?'checked':''} data-id="${id}"></td>`;
-      tbody.appendChild(tr);
-    });
-    app.appendChild(section);
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+}
+
+weeks.forEach((w, wi) => {
+  const section = document.createElement("div");
+  section.className = "week";
+  section.innerHTML = `
+    <div class="week-head"><h2>${w.label}</h2><span>a partir de ${w.date}</span></div>
+    <div class="overflow"><table>
+      <thead><tr><th>Tarefa</th><th>Responsável</th><th>Feito</th></tr></thead>
+      <tbody></tbody>
+    </table></div>`;
+  const tbody = section.querySelector("tbody");
+  tasks.forEach((task, ti) => {
+    const person = w.pattern[ti];
+    const id = `w${wi}-t${ti}`;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="task ${state[id]?'done':''}">${task}</td>
+      <td><span class="who" style="background:${colors[person]}">${person}</span></td>
+      <td><input type="checkbox" class="chk" ${state[id]?'checked':''} data-id="${id}"></td>`;
+    tbody.appendChild(tr);
   });
-}
-
-render();
-
-async function loadData() {
-  const { data, error } = await _supabase.from('escala').select('*');
-  if (!error && data) {
-    state = {};
-    data.forEach(item => { state[item.id] = item.feito; });
-    render();
-    statusEl.innerText = "🟢 Sincronizado com todos";
-  } else {
-    statusEl.innerText = "🟡 Erro ao carregar os dados";
-  }
-}
-
-async function saveData(id, feito) {
-  statusEl.innerText = "⏳ A guardar...";
-  const { error } = await _supabase.from('escala').upsert({ id: id, feito: feito });
-  if (!error) {
-    statusEl.innerText = "🟢 Sincronizado com todos";
-  } else {
-    statusEl.innerText = "🟡 Erro ao guardar no servidor";
-  }
-}
+  app.appendChild(section);
+});
 
 app.addEventListener("change", e => {
   if(e.target.classList.contains("chk")){
     const id = e.target.dataset.id;
-    const checked = e.target.checked;
-    state[id] = checked;
+    state[id] = e.target.checked;
+    save();
     const cell = e.target.closest("tr").querySelector(".task");
-    cell.classList.toggle("done", checked);
-    saveData(id, checked);
+    cell.classList.toggle("done", e.target.checked);
   }
 });
-
-loadData();
-setInterval(loadData, 5000);
 </script>
 </body>
 </html>
