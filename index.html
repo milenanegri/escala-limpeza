@@ -52,7 +52,7 @@ td{padding:10px 18px;border-top:1px solid var(--line);font-size:.95rem;}
     <span><span class="dot" style="background:var(--nicolas)"></span>Nicolas</span>
     <span><span class="dot" style="background:var(--milena)"></span>Milena</span>
   </div>
-  <div class="status-bar" id="status">🔄 Conectando...</div>
+  <div class="status-bar" id="status">🔄 A ligar à nuvem...</div>
 </header>
 <div class="wrap" id="app"></div>
 
@@ -75,10 +75,11 @@ const weeks = [
 const app = document.getElementById("app");
 const statusEl = document.getElementById("status");
 
-// Endpoint global via REST API
-const API_URL = "https://camelot-limpeza-default-rtdb.firebaseio.com/escala.json";
+// Servidor de Sincronização Público do Planner
+const API_URL = "https://getpantry.cloud/apiv1/pantry/8883ec3f-d383-4318-a6b1-4775d7920bb0/basket/camelotLimpeza";
 
 let state = {};
+let isSaving = false;
 
 function render() {
   app.innerHTML = "";
@@ -107,30 +108,34 @@ function render() {
 }
 
 async function loadData() {
+  if (isSaving) return;
   try {
     const res = await fetch(API_URL);
     if (res.ok) {
       const data = await res.json();
-      if (data) state = data;
+      state = data || {};
+      statusEl.innerText = "🟢 Sincronizado com todos";
+      render();
     }
-    statusEl.innerText = "🟢 Sincronizado com todos";
   } catch (e) {
     statusEl.innerText = "🟡 Modo offline";
   }
-  render();
 }
 
 async function saveData() {
-  statusEl.innerText = "⏳ Sincronizando...";
+  isSaving = true;
+  statusEl.innerText = "⏳ A guardar...";
   try {
     await fetch(API_URL, {
-      method: "PUT",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(state)
     });
     statusEl.innerText = "🟢 Sincronizado com todos";
   } catch (e) {
-    statusEl.innerText = "🟡 Erro na sincronização";
+    statusEl.innerText = "🟡 Erro ao guardar";
+  } finally {
+    isSaving = false;
   }
 }
 
@@ -144,16 +149,9 @@ app.addEventListener("change", e => {
   }
 });
 
+// Inicialização
 loadData();
-setInterval(loadData, 3000);
-</script>
-</body>
-</html>
-});
-
-// Inicializa e atualiza automaticamente a cada 5 segundos
-loadData();
-setInterval(loadData, 5000);
+setInterval(loadData, 4000);
 </script>
 </body>
 </html>
