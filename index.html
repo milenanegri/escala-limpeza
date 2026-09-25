@@ -25,6 +25,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Se
 header{padding:28px 16px 10px;text-align:center;}
 h1{margin:0 0 4px;font-size:1.5rem;letter-spacing:.02em;color:var(--accent);}
 header p{margin:0;color:var(--sub);font-size:.95rem;}
+.status-bar{margin-top:8px;font-size:.8rem;color:var(--sub);font-weight:600;}
 .wrap{max-width:900px;margin:0 auto;padding:12px 12px 40px;}
 .week{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:16px 0;overflow:hidden;}
 .week-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--accent);color:#fff;}
@@ -51,6 +52,7 @@ td{padding:10px 18px;border-top:1px solid var(--line);font-size:.95rem;}
     <span><span class="dot" style="background:var(--nicolas)"></span>Nicolas</span>
     <span><span class="dot" style="background:var(--milena)"></span>Milena</span>
   </div>
+  <div class="status-bar" id="status">🔄 Sincronizando...</div>
 </header>
 <div class="wrap" id="app"></div>
 
@@ -71,46 +73,84 @@ const weeks = [
 ];
 
 const app = document.getElementById("app");
-const KEY = "camelot-planner-status";
-let state = {};
-try{ state = JSON.parse(localStorage.getItem(KEY) || "{}"); }catch(e){ state = {}; }
+const statusEl = document.getElementById("status");
 
-function save(){
-  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+// Banco de dados compartilhado automático (kvdb.io)
+const BUCKET_KEY = "camelot_limpeza_v1_sync";
+const API_URL = `https://kvdb.io/4yKqPqMThY7y61iXfL6f2y/${BUCKET_KEY}`;
+
+let state = {};
+
+function render() {
+  app.innerHTML = "";
+  weeks.forEach((w, wi) => {
+    const section = document.createElement("div");
+    section.className = "week";
+    section.innerHTML = `
+      <div class="week-head"><h2>${w.label}</h2><span>a partir de ${w.date}</span></div>
+      <div class="overflow"><table>
+        <thead><tr><th>Tarefa</th><th>Responsável</th><th>Feito</th></tr></thead>
+        <tbody></tbody>
+      </table></div>`;
+    const tbody = section.querySelector("tbody");
+    tasks.forEach((task, ti) => {
+      const person = w.pattern[ti];
+      const id = `w${wi}-t${ti}`;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="task ${state[id]?'done':''}">${task}</td>
+        <td><span class="who" style="background:${colors[person]}">${person}</span></td>
+        <td><input type="checkbox" class="chk" ${state[id]?'checked':''} data-id="${id}"></td>`;
+      tbody.appendChild(tr);
+    });
+    app.appendChild(section);
+  });
 }
 
-weeks.forEach((w, wi) => {
-  const section = document.createElement("div");
-  section.className = "week";
-  section.innerHTML = `
-    <div class="week-head"><h2>${w.label}</h2><span>a partir de ${w.date}</span></div>
-    <div class="overflow"><table>
-      <thead><tr><th>Tarefa</th><th>Responsável</th><th>Feito</th></tr></thead>
-      <tbody></tbody>
-    </table></div>`;
-  const tbody = section.querySelector("tbody");
-  tasks.forEach((task, ti) => {
-    const person = w.pattern[ti];
-    const id = `w${wi}-t${ti}`;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td class="task ${state[id]?'done':''}">${task}</td>
-      <td><span class="who" style="background:${colors[person]}">${person}</span></td>
-      <td><input type="checkbox" class="chk" ${state[id]?'checked':''} data-id="${id}"></td>`;
-    tbody.appendChild(tr);
-  });
-  app.appendChild(section);
-});
+async function loadData() {
+  try {
+    const res = await fetch(API_URL);
+    if (res.ok) {
+      state = await res.json();
+      localStorage.setItem(BUCKET_KEY, JSON.stringify(state));
+    } else {
+      state = JSON.parse(localStorage.getItem(BUCKET_KEY) || "{}");
+    }
+    statusEl.innerText = "🟢 Sincronizado com todos";
+  } catch (e) {
+    state = JSON.parse(localStorage.getItem(BUCKET_KEY) || "{}");
+    statusEl.innerText = "🟡 Modo offline (Salvo apenas no dispositivo)";
+  }
+  render();
+}
+
+async function saveData() {
+  statusEl.innerText = "⏳ Guardando...";
+  localStorage.setItem(BUCKET_KEY, JSON.stringify(state));
+  try {
+    await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify(state)
+    });
+    statusEl.innerText = "🟢 Sincronizado com todos";
+  } catch (e) {
+    statusEl.innerText = "🟡 Erro ao sincronizar (Salvo localmente)";
+  }
+}
 
 app.addEventListener("change", e => {
   if(e.target.classList.contains("chk")){
     const id = e.target.dataset.id;
     state[id] = e.target.checked;
-    save();
     const cell = e.target.closest("tr").querySelector(".task");
     cell.classList.toggle("done", e.target.checked);
+    saveData();
   }
 });
+
+// Inicializa e atualiza automaticamente a cada 5 segundos
+loadData();
+setInterval(loadData, 5000);
 </script>
 </body>
 </html>
