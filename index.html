@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Escala de Limpeza — Reino de Camelot</title>
+<style>
+:root{
+  --bg:#f4f6f0; --card:#ffffff; --ink:#1f2a1a; --sub:#5b6b52; --line:#e2e7da;
+  --estevao:#3b6ea5; --nicolas:#7a4fa3; --milena:#c9558b; --accent:#3f7d3f;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#181c16; --card:#22271f; --ink:#eef1ea; --sub:#a7b39a; --line:#333a2c;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#181c16; --card:#22271f; --ink:#eef1ea; --sub:#a7b39a; --line:#333a2c;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif;}
+header{padding:28px 16px 10px;text-align:center;}
+h1{margin:0 0 4px;font-size:1.5rem;letter-spacing:.02em;color:var(--accent);}
+header p{margin:0;color:var(--sub);font-size:.95rem;}
+.wrap{max-width:900px;margin:0 auto;padding:12px 12px 40px;}
+.week{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:16px 0;overflow:hidden;}
+.week-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--accent);color:#fff;}
+.week-head h2{margin:0;font-size:1.05rem;}
+.week-head span{font-size:.85rem;opacity:.9;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--sub);padding:8px 18px;}
+td{padding:10px 18px;border-top:1px solid var(--line);font-size:.95rem;}
+.task{font-weight:600;}
+.who{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;color:#fff;font-size:.85rem;font-weight:600;}
+.done{opacity:.45;text-decoration:line-through;}
+.chk{width:20px;height:20px;cursor:pointer;accent-color:var(--accent);}
+.legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:6px 0 4px;font-size:.85rem;color:var(--sub);}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle;}
+.overflow{overflow-x:auto;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏰 Escala de Limpeza — Reino de Camelot</h1>
+  <p>Planner de 24/Set a 29/Out</p>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--estevao)"></span>Estevão</span>
+    <span><span class="dot" style="background:var(--nicolas)"></span>Nicolas</span>
+    <span><span class="dot" style="background:var(--milena)"></span>Milena</span>
+  </div>
+</header>
+<div class="wrap" id="app"></div>
+
+<script>
+const tasks = ["Banheiro","Lavabo","Lixos","Cozinha","Sala e Corredores","Lavanderia","Geladeira"];
+const colors = {"Estevão":"var(--estevao)","Nicolas":"var(--nicolas)","Milena":"var(--milena)"};
+const patternA = ["Estevão","Nicolas","Milena","Estevão","Nicolas","Milena","Estevão"];
+const patternB = ["Nicolas","Milena","Estevão","Nicolas","Milena","Estevão","Nicolas"];
+const patternC = ["Milena","Estevão","Nicolas","Milena","Estevão","Nicolas","Milena"];
+
+const weeks = [
+  {label:"Semana 1", date:"24/Set", pattern: patternB},
+  {label:"Semana 2", date:"01/Out", pattern: patternC},
+  {label:"Semana 3", date:"08/Out", pattern: patternA},
+  {label:"Semana 4", date:"15/Out", pattern: patternB},
+  {label:"Semana 5", date:"22/Out", pattern: patternC},
+  {label:"Semana 6", date:"29/Out", pattern: patternA},
+];
+
+const app = document.getElementById("app");
+const KEY = "camelot-planner-status";
+let state = {};
+try{ state = JSON.parse(localStorage.getItem(KEY) || "{}"); }catch(e){ state = {}; }
+
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+}
+
+weeks.forEach((w, wi) => {
+  const section = document.createElement("div");
+  section.className = "week";
+  section.innerHTML = `
+    <div class="week-head"><h2>${w.label}</h2><span>a partir de ${w.date}</span></div>
+    <div class="overflow"><table>
+      <thead><tr><th>Tarefa</th><th>Responsável</th><th>Feito</th></tr></thead>
+      <tbody></tbody>
+    </table></div>`;
+  const tbody = section.querySelector("tbody");
+  tasks.forEach((task, ti) => {
+    const person = w.pattern[ti];
+    const id = `w${wi}-t${ti}`;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="task ${state[id]?'done':''}">${task}</td>
+      <td><span class="who" style="background:${colors[person]}">${person}</span></td>
+      <td><input type="checkbox" class="chk" ${state[id]?'checked':''} data-id="${id}"></td>`;
+    tbody.appendChild(tr);
+  });
+  app.appendChild(section);
+});
+
+app.addEventListener("change", e => {
+  if(e.target.classList.contains("chk")){
+    const id = e.target.dataset.id;
+    state[id] = e.target.checked;
+    save();
+    const cell = e.target.closest("tr").querySelector(".task");
+    cell.classList.toggle("done", e.target.checked);
+  }
+});
+</script>
+</body>
+</html>
