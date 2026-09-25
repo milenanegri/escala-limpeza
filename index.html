@@ -42,6 +42,9 @@ td{padding:10px 18px;border-top:1px solid var(--line);font-size:.95rem;}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle;}
 .overflow{overflow-x:auto;}
 </style>
+<!-- Firebase Realtime Database Scripts -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 <header>
@@ -57,8 +60,13 @@ td{padding:10px 18px;border-top:1px solid var(--line);font-size:.95rem;}
 <div class="wrap" id="app"></div>
 
 <script>
-const NPOINT_ID = "6a45607fe2fcb0f9e2e5"; 
-const API_URL = `https://api.npoint.io/${NPOINT_ID}`;
+// Configuração de servidor Firebase público pré-configurado
+const firebaseConfig = {
+  databaseURL: "https://planner-camelot-default-rtdb.firebaseio.com"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database().ref("escala_camelot");
 
 const tasks = ["Banheiro","Lavabo","Lixos","Cozinha","Sala e Corredores","Lavanderia","Geladeira"];
 const colors = {"Estevão":"var(--estevao)","Nicolas":"var(--nicolas)","Milena":"var(--milena)"};
@@ -108,37 +116,14 @@ function render() {
 
 render();
 
-async function loadData() {
-  try {
-    const res = await fetch(API_URL);
-    if (res.ok) {
-      const data = await res.json();
-      state = data || {};
-      render();
-      statusEl.innerText = "🟢 Sincronizado com todos";
-    }
-  } catch (e) {
-    statusEl.innerText = "🟡 Erro ao carregar os dados";
-  }
-}
-
-async function saveData() {
-  statusEl.innerText = "⏳ A guardar...";
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(state)
-    });
-    if (res.ok) {
-      statusEl.innerText = "🟢 Sincronizado com todos";
-    } else {
-      statusEl.innerText = "🟡 Erro ao guardar no servidor";
-    }
-  } catch (e) {
-    statusEl.innerText = "🟡 Erro de conexão";
-  }
-}
+// Escuta alterações em TEMPO REAL instantaneamente
+db.on('value', (snapshot) => {
+  state = snapshot.val() || {};
+  render();
+  statusEl.innerText = "🟢 Sincronizado com todos (Tempo Real)";
+}, (error) => {
+  statusEl.innerText = "🟡 Erro de conexão";
+});
 
 app.addEventListener("change", e => {
   if(e.target.classList.contains("chk")){
@@ -146,15 +131,14 @@ app.addEventListener("change", e => {
     state[id] = e.target.checked;
     const cell = e.target.closest("tr").querySelector(".task");
     cell.classList.toggle("done", e.target.checked);
-    saveData();
+    
+    statusEl.innerText = "⏳ A guardar...";
+    db.set(state).then(() => {
+      statusEl.innerText = "🟢 Sincronizado com todos (Tempo Real)";
+    }).catch(() => {
+      statusEl.innerText = "🟡 Erro ao guardar no servidor";
+    });
   }
-});
-
-loadData();
-setInterval(loadData, 4000);
-</script>
-</body>
-</html>
 });
 </script>
 </body>
