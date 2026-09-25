@@ -52,7 +52,7 @@ td{padding:10px 18px;border-top:1px solid var(--line);font-size:.95rem;}
     <span><span class="dot" style="background:var(--nicolas)"></span>Nicolas</span>
     <span><span class="dot" style="background:var(--milena)"></span>Milena</span>
   </div>
-  <div class="status-bar" id="status">🔄 Sincronizando...</div>
+  <div class="status-bar" id="status">🔄 Conectando...</div>
 </header>
 <div class="wrap" id="app"></div>
 
@@ -75,9 +75,8 @@ const weeks = [
 const app = document.getElementById("app");
 const statusEl = document.getElementById("status");
 
-// Banco de dados compartilhado automático (kvdb.io)
-const BUCKET_KEY = "camelot_limpeza_v1_sync";
-const API_URL = `https://kvdb.io/4yKqPqMThY7y61iXfL6f2y/${BUCKET_KEY}`;
+// Endpoint global via REST API
+const API_URL = "https://camelot-limpeza-default-rtdb.firebaseio.com/escala.json";
 
 let state = {};
 
@@ -111,30 +110,27 @@ async function loadData() {
   try {
     const res = await fetch(API_URL);
     if (res.ok) {
-      state = await res.json();
-      localStorage.setItem(BUCKET_KEY, JSON.stringify(state));
-    } else {
-      state = JSON.parse(localStorage.getItem(BUCKET_KEY) || "{}");
+      const data = await res.json();
+      if (data) state = data;
     }
     statusEl.innerText = "🟢 Sincronizado com todos";
   } catch (e) {
-    state = JSON.parse(localStorage.getItem(BUCKET_KEY) || "{}");
-    statusEl.innerText = "🟡 Modo offline (Salvo apenas no dispositivo)";
+    statusEl.innerText = "🟡 Modo offline";
   }
   render();
 }
 
 async function saveData() {
-  statusEl.innerText = "⏳ Guardando...";
-  localStorage.setItem(BUCKET_KEY, JSON.stringify(state));
+  statusEl.innerText = "⏳ Sincronizando...";
   try {
     await fetch(API_URL, {
-      method: "POST",
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(state)
     });
     statusEl.innerText = "🟢 Sincronizado com todos";
   } catch (e) {
-    statusEl.innerText = "🟡 Erro ao sincronizar (Salvo localmente)";
+    statusEl.innerText = "🟡 Erro na sincronização";
   }
 }
 
@@ -146,6 +142,13 @@ app.addEventListener("change", e => {
     cell.classList.toggle("done", e.target.checked);
     saveData();
   }
+});
+
+loadData();
+setInterval(loadData, 3000);
+</script>
+</body>
+</html>
 });
 
 // Inicializa e atualiza automaticamente a cada 5 segundos
